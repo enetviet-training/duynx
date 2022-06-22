@@ -1,0 +1,16 @@
+{
+  "name": "expressusing",
+  "version": "1.0.0",
+  "description": "Cai Dat Express va xay dung q Web server",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Duy Nguyen",
+  "license": "MIT",
+  "dependencies": {
+    "cookie-parser": "^1.4.6",
+    "ejs": "^3.1.8",
+    "express": "^4.18.1"
+  }
+}
