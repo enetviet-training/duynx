@@ -1,10 +1,10 @@
-var mongoose = require("mongoose");
+const mongoose = require("mongoose");
 
-var todoSchema = mongoose.Schema({
+const todoSchema = mongoose.Schema({
     text: String,
     isDone: Boolean
 });
 
-var Todos = mongoose.model("Todos", todoSchema);
+const Todos = mongoose.model("Todos", todoSchema);
 
 module.exports = Todos;

@@ -1,15 +1,15 @@
-var express = require("express");
-var bodyParser = require("body-parser");
-var morgan = require("morgan");
-var mongoose = require("mongoose");
+const express = require("express");
+const bodyParser = require("body-parser");
+const morgan = require("morgan");
+const mongoose = require("mongoose");
 const { MongoClient, ServerApiVersion } = require('mongodb');
 
-var config = require("./config");
-var setupController = require("./api/controllers/setupController");
-var todoController = require("./api/controllers/todoController");
+const config = require("./config");
+const setupController = require("./api/controllers/setupController");
+const todoController = require("./api/controllers/todoController");
 
-var app = express();
-var port = process.env.PORT || 3000;
+const app = express();
+const port = process.env.PORT || 3000;
 
 app.use("/assets", express.static(__dirname + "public"));
 app.use(bodyParser.json());
