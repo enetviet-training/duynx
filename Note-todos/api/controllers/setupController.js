@@ -32,18 +32,13 @@ module.exports = function (app) {
                 
                 // create or update document
                 if (statistResults.length < 1) {
-                    Statist.create({
-                        created: seedTodos.length,
-                        deleted: 0,
-                        completed: 0
-
-                    }, function(err){
+                    Statist.create(
+                        {created: seedTodos.length}, function(err){
                         if(err) throw err;
                     })
                 }
                 else {
-                    Statist.findOneAndUpdate(
-                        {_id: statistResults[0]._id},
+                    Statist.updateOne(
                         {$inc: { created: seedTodos.length}},
                         function(err) {
                             if (err) throw err;

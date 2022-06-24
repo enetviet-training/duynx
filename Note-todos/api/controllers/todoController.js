@@ -25,9 +25,9 @@ function getStatist(res){
 }
 
 function printStatist(){
-    Statist.find(function(err, statists){
+    Statist.findOne(function(err, statist){
         if (err) throw err;
-        console.log(statists[0]);
+        console.log(statist);
     })
 }
 
@@ -49,7 +49,7 @@ module.exports = function(app){
     });
 
     // get statist
-    app.get("/api/statist", function(req,res){
+    app.get("/api/todos/statist", function(req,res){
         getStatist(res);
     })
 
@@ -59,44 +59,21 @@ module.exports = function(app){
 
     app.post("/api/todo", function(req, res){
 
-        const todo = {
-            text: req.body.text,
-            isDone: req.body.isDone
-        };
-
-        Todos.create(todo, function(err, todo) {
+        Todos.create({text: req.body.text, isDone: req.body.isDone === "true" ? true : false}, function(err) {
             if (err) throw err;
 
             getTodos(res);
 
             // statist
-            Statist.find(function (err, statistResults) {
-                if (err) throw err;
-                
-                // create new document if not exist
-                if (statistResults.length === 0) {
-                    const newStatist = {
-                        created: 1,
-                        deleted: 0,
-                        completed: req.body.isDone === "true" ? 1 : 0
-                    }
-
-                    Statist.create(newStatist, function(err){
-                        if (err) throw err;
-                        printStatist();
-                    })
+            Statist.updateOne(
+                { },
+                { $inc: { created: 1 , completed: req.body.isDone === "true" ? 1 : 0 } }, 
+                { upsert: true},
+                 function (err) {
+                    if (err) throw err;
+                    printStatist();
                 }
-                else {
-                    Statist.findOneAndUpdate(
-                        { _id: statistResults[0]._id },
-                        { $inc: { created: 1 , completed: req.body.isDone === "true" ? 1 : 0 } },
-                        function (err) {
-                            if (err) throw err;
-                            printStatist();
-                        }
-                    )
-                }    
-            })
+            )
         });
     });
 
@@ -109,51 +86,36 @@ module.exports = function(app){
             return res.status(500).send("Id is required");
         }
         else {
-
-            // Update statist: completed
-            let incValue = 0;
-            Todos.findById(req.body.id, function(err, foundTodo){
-                if (err){
-                    return res.status(500).json(err);
-                }
-                else {
-                    console.log(foundTodo.isDone);
-                    if( !req.body.isDone || foundTodo.isDone === null)  return;
-                    if(req.body.isDone !== foundTodo.isDone.toString())
-                    {
-                        incValue = (foundTodo.isDone === true ? -1 : 1 )
-                    }                   
-                }
-            })
-
-            Todos.updateMany({
+            Todos.updateOne({
                 _id: req.body.id
             }, {
-                text: req.body.text,
-                isDone: req.body.isDone
+                text: req.body.text
             }, function (err){
-                if (err){
-                    return res.status(500).json(err);
-                }
-                else {
-                    getTodos(res);
+                if (err) throw err;
 
-                    // statist
-                    Statist.find(function (err, statistResults) {
-                        if (err) throw err;
+                // update isDone later
+                Todos.updateOne({
+                    _id: req.body.id,
+                    isDone: req.body.isDone === "true" ? false : true
+                }, {
+                    isDone: req.body.isDone === "true" ? true : false
+                }, function (err, todo){
+                    if (err) throw err;
 
-                        Statist.findOneAndUpdate(
-                            { _id: statistResults[0]._id },
-                            { $inc: { completed: incValue } },
+                    if(todo.nModified > 0)
+                    {
+                        // statist
+                        Statist.updateOne(
+                            { $inc: { completed: req.body.isDone === "true" ? 1 : -1 } },
                             function (err) {
                                 if (err) throw err;
                                 printStatist();
                             }
                         )
-                    })
-                }
-                
-            })
+                    }
+                    getTodos(res);
+                })       
+            })        
         }
     });
 
@@ -162,9 +124,9 @@ module.exports = function(app){
      */
 
     app.delete("/api/todo/:id", function(req, res){
-        Todos.deleteMany({
+        Todos.deleteOne({
             _id: req.params.id
-        }, function(err, todo){
+        }, function(err){
             if(err){
                 return res.status(500).json(err);
             }
@@ -172,18 +134,13 @@ module.exports = function(app){
                 getTodos(res);
 
                 // statist
-                Statist.find(function (err, statistResults) {
-                    if (err) throw err;
-
-                    Statist.findOneAndUpdate(
-                        { _id: statistResults[0]._id },
-                        { $inc: { deleted: 1 } },
-                        function (err, response) {
-                            if (err) throw err;
-                            printStatist();
-                        }
-                    )
-                })
+                Statist.updateOne(
+                    { $inc: { deleted: 1 } },
+                    function (err) {
+                        if (err) throw err;
+                        printStatist();
+                    }
+                )
             }
         })
     })
@@ -201,18 +158,13 @@ module.exports = function(app){
                 getTodos(res);
 
                 // statist
-                Statist.find(function (err, statistResults) {
-                    if (err) throw err;
-
-                    Statist.findOneAndUpdate(
-                        { _id: statistResults[0]._id },
-                        { $inc: { deleted: todo.deletedCount } },
-                        function (err, response) {
-                            if (err) throw err;
-                            printStatist();
-                        }
-                    )
-                })
+                Statist.updateOne(
+                    { $inc: { deleted: todo.deletedCount } },
+                    function (err) {
+                        if (err) throw err;
+                        printStatist();
+                    }
+                )
             }  
         })
     })
