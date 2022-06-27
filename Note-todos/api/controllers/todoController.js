@@ -80,42 +80,45 @@ module.exports = function(app){
     /**
      * Update a Todo
      */
-
-    app.put("/api/todo", function(req, res){
-        if (!req.body.id){
+    app.put("/api/todo", function (req, res) {
+        if (!req.body.id) {
             return res.status(500).send("Id is required");
         }
         else {
-            Todos.updateOne({
-                _id: req.body.id
-            }, {
-                text: req.body.text
-            }, function (err){
-                if (err) throw err;
-
-                // update isDone later
+            let { isDone: isDoneReq } = req.body;
+            if (!isDoneReq) {
+                Todos.updateOne({
+                    _id: req.body.id
+                }, {
+                    text: req.body.text
+                }, function (err) {
+                    if (err) throw err;
+                })
+            }
+            else {
                 Todos.updateOne({
                     _id: req.body.id,
-                    isDone: req.body.isDone === "true" ? false : true
                 }, {
-                    isDone: req.body.isDone === "true" ? true : false
-                }, function (err, todo){
-                    if (err) throw err;
+                    text: req.body.text,
+                    isDone: isDoneReq === "true" ? true : false,
+                },
+                    function (err, todo) {
+                        if (err) throw err;
+                        console.log(todo);
 
-                    if(todo.nModified > 0)
-                    {
                         // statist
                         Statist.updateOne(
-                            { $inc: { completed: req.body.isDone === "true" ? 1 : -1 } },
+                            { $inc: { completed: isDoneReq === "true" ? 1 : -1 } },
                             function (err) {
                                 if (err) throw err;
                                 printStatist();
                             }
                         )
-                    }
-                    getTodos(res);
-                })       
-            })        
+                    })
+
+            }
+
+            getTodos(res);
         }
     });
 
