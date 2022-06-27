@@ -1,10 +1,10 @@
 const { json } = require("body-parser");
-var Todos = require("../models/todoModel");
+const Todos = require("../models/todoModel");
+const Statist = require("../models/statistModel")
 
-function getTodos(res){
-    Todos.find(function (err, todos){
-
-        if (err){
+function getTodos(res) {
+    Todos.find(function (err, todos) {
+        if (err) {
             res.send(err);
         }
         else {
@@ -13,64 +13,116 @@ function getTodos(res){
     });
 }
 
-module.exports = function(app){
+function getStatist(res) {
+    Statist.find(function (err, statist) {
+        if (err) {
+            res.send(err);
+        }
+        else {
+            res.json(statist);
+        }
+    });
+}
+
+function printStatist() {
+    Statist.findOne(function (err, statist) {
+        if (err) throw err;
+        console.log(statist);
+    })
+}
+
+module.exports = function (app) {
 
     // get all todos
-    app.get("/api/todos", function(req,res){
+    app.get("/api/todos", function (req, res) {
         getTodos(res);
     })
 
     // /api/todo/123456
-    app.get("/api/todo/:id", function(req, res){
+    app.get("/api/todo/:id", function (req, res) {
 
-        Todos.findById({_id: req.params.id}, function (err, todo){
+        Todos.findById({ _id: req.params.id }, function (err, todo) {
             if (err) throw err;
 
             res.json(todo);
         });
     });
 
+    // get statist
+    app.get("/api/todos/statist", function (req, res) {
+        getStatist(res);
+    })
+
     /**
      * Create a todo
      */
 
-    app.post("/api/todo", function(req, res){
+    app.post("/api/todo", function (req, res) {
 
-        var todo = {
-            text: req.body.text,
-            isDone: req.body.isDone
-        };
-
-        Todos.create(todo, function(err, todo) {
+        Todos.create({ text: req.body.text, isDone: req.body.isDone === "true" ? true : false }, function (err) {
             if (err) throw err;
 
             getTodos(res);
+
+            // statist
+            Statist.updateOne(
+                {},
+                { $inc: { created: 1, completed: req.body.isDone === "true" ? 1 : 0 } },
+                { upsert: true },
+                function (err) {
+                    if (err) throw err;
+                    printStatist();
+                }
+            )
         });
     });
 
     /**
      * Update a Todo
      */
-
-    app.put("/api/todo", function(req, res){
-        if (!req.body.id){
+    app.put("/api/todo", function (req, res) {
+        if (!req.body.id) {
             return res.status(500).send("Id is required");
         }
         else {
-            Todos.updateMany({
-                _id: req.body.id
-            }, {
-                text: req.body.text,
-                isDone: req.body.isDone
-            }, function (err, todo){
-                if (err){
-                    return res.status(500).json(err);
-                }
-                else {
-                    getTodos(res);
-                }
-                
-            })
+            let {isDone, id,  text} = req.body;
+            if (!isDone) {
+                Todos.updateOne({
+                    _id: id
+                }, {
+                    text: text
+                }, function (err) {
+                    if (err) throw err;
+                })
+            }
+            else {
+                let isDoneUpdated = isDone === "true" ? true : false;
+                Todos.updateOne({
+                    _id: req.body.id,
+                    isDone: !isDoneUpdated
+                }, {
+                    text: req.body.text,
+                    isDone: isDoneUpdated
+                },
+                    function (err, todo) {
+                        if (err) throw err;
+                        if (todo.nModified > 0) {
+                            // statist
+                            Statist.updateOne(
+                                { $inc: { completed: isDoneUpdated ? 1 : -1 } },
+                                function (err) {
+                                    if (err) throw err;
+                                    printStatist();
+                                }
+                            )
+                        }
+                        else {
+                            throw new Error("Update failed !")
+                        }
+                    })
+            }
+
+            getTodos(res);
         }
     });
 
@@ -78,15 +130,24 @@ module.exports = function(app){
      * Delete a todo
      */
 
-    app.delete("/api/todo/:id", function(req, res){
-        Todos.deleteMany({
+    app.delete("/api/todo/:id", function (req, res) {
+        Todos.deleteOne({
             _id: req.params.id
-        }, function(err, todo){
-            if(err){
+        }, function (err) {
+            if (err) {
                 return res.status(500).json(err);
             }
             else {
                 getTodos(res);
+
+                // statist
+                Statist.updateOne(
+                    { $inc: { deleted: 1 } },
+                    function (err) {
+                        if (err) throw err;
+                        printStatist();
+                    }
+                )
             }
         })
     })
@@ -95,13 +156,22 @@ module.exports = function(app){
      * Delete all Todos
      */
 
-    app.delete("/api/todo/deleteAll", function(req, res){
-        Todos.deleteMany( function(err, todo){
-            if(err){
-                return res.satatus(500).json(err);
+    app.delete("/api/todos/deleteAll", function (req, res) {
+        Todos.deleteMany(function (err, todo) {
+            if (err) {
+                return res.status(500).json(err);
             }
             else {
                 getTodos(res);
+
+                // statist
+                Statist.updateOne(
+                    { $inc: { deleted: todo.deletedCount } },
+                    function (err) {
+                        if (err) throw err;
+                        printStatist();
+                    }
+                )
             }
         })
     })
