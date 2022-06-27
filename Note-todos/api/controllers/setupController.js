@@ -3,7 +3,7 @@ const Statist = require("../models/statistModel");
 
 module.exports = function (app) {
 
-    app.get("/api/setupTodos", function(req, res){
+    app.get("/api/setupTodos", function (req, res) {
         // setup seed data
         const seedTodos = [
             {
@@ -22,34 +22,34 @@ module.exports = function (app) {
             }
         ];
 
-        Todos.create(seedTodos, function(err, results){
+        Todos.create(seedTodos, function (err, results) {
             if (err) throw err;
             res.send(results);
 
             // statist
-            Statist.find(function(err, statistResults){
+            Statist.find(function (err, statistResults) {
                 if (err) throw err;
-                
+
                 // create or update document
                 if (statistResults.length < 1) {
                     Statist.create(
-                        {created: seedTodos.length}, function(err){
-                        if(err) throw err;
-                    })
+                        { created: seedTodos.length }, function (err) {
+                            if (err) throw err;
+                        })
                 }
                 else {
                     Statist.updateOne(
-                        {$inc: { created: seedTodos.length}},
-                        function(err) {
+                        { $inc: { created: seedTodos.length } },
+                        function (err) {
                             if (err) throw err;
 
                             // print log
-                            Statist.find(function(err, statists){
+                            Statist.find(function (err, statists) {
                                 if (err) throw err;
                                 console.log(statists[0]);
                             })
                         }
-                    )                    
+                    )
                 }
             });
         });

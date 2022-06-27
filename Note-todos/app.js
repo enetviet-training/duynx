@@ -13,7 +13,7 @@ const port = process.env.PORT || 3000;
 
 app.use("/assets", express.static(__dirname + "public"));
 app.use(bodyParser.json());
-app.use(bodyParser.urlencoded(({ extended: true})));
+app.use(bodyParser.urlencoded(({ extended: true })));
 
 app.use(morgan("dev"));
 
@@ -26,16 +26,16 @@ mongoose.connect(config.getDbConnectionString(), { seNewUrlParser: true, useUnif
     RunApp();
 });
 
-function RunApp () {
+function RunApp() {
     // Connect successful !!
     setupController(app);
     todoController(app);
 
-    app.get("/", function(req,res){
+    app.get("/", function (req, res) {
         res.render("index");
     });
 
-    app.listen(port, function(){
+    app.listen(port, function () {
         console.log("App listening on port: " + port);
     });
 }
