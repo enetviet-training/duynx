@@ -2,44 +2,44 @@ const { json } = require("body-parser");
 const Todos = require("../models/todoModel");
 const Statist = require("../models/statistModel");
 
-const getTodos = (res) => {
-    Todos.find((err, todos) => {
-        if (err) {
-            res.send(err);
-        }
-        else {
-            res.json(todos);
-        }
-    });
+const getTodos = async (res) => {
+    try {
+        let todos = await Todos.find();
+        res.json(todos);
+    } catch (err) {
+        res.send(err);
+    }
 }
 
 exports.getAllTodos = (req, res) => {
     getTodos(res);
 }
 
-exports.getOneTodo = (req, res) => {
-    Todos.findById({ _id: req.params.id }, function (err, todo) {
-        if (err) throw err;
+exports.getOneTodo = async (req, res) => {
+    try {
+        let todo = await Todos.findById({ _id: req.params.id });
         res.json(todo);
-    });
+    } catch (err) {
+        throw err;
+    }
 }
 
-exports.getStatist = (req, res) => {
-    Statist.find((err, statist) => {
-        if (err) {
-            res.send(err);
-        }
-        else {
-            res.json(statist);
-        }
-    });
+exports.getStatist = async (req, res) => {
+    try {
+        let statist = await Statist.find();
+        res.json(statist);
+    } catch (err) {
+        res.send(err);
+    }
 }
 
-const printStatist = () => {
-    Statist.findOne((err, statist) => {
-        if (err) throw err;
+const printStatist = async () => {
+    try {
+        let statist = await Statist.findOne();
         console.log(statist);
-    })
+    } catch (err) {
+        throw err;
+    }
 }
 
 exports.createTodo = async (req, res) => {
@@ -47,13 +47,13 @@ exports.createTodo = async (req, res) => {
     let isDoneUpdated = isDone === "true" ? true : false;
 
     try {
-        let todo = await Todos.create({ text: text, isDone: isDoneUpdated })
+        await Todos.create({ text: text, isDone: isDoneUpdated });
         getTodos(res);
 
         await Statist.updateOne(
             {},
             { $inc: { created: 1, completed: isDoneUpdated ? 1 : 0 } },
-            { upsert: true })
+            { upsert: true });
         printStatist();
 
     } catch (err) {
@@ -67,7 +67,7 @@ exports.updateTodos = async (req, res) => {
 
     try {
         if (!isDone) {
-            todo = await Todos.updateOne({ _id: id }, { text: text })
+            todo = await Todos.updateOne({ _id: id }, { text: text });
             getTodos(res);
         }
         else {
@@ -78,12 +78,12 @@ exports.updateTodos = async (req, res) => {
             }, {
                 text: req.body.text,
                 isDone: isDoneUpdated
-            })
+            });
 
             // statist
             if (todo.nModified > 0) {
                 getTodos(res);
-                await Statist.updateOne({ $inc: { completed: isDoneUpdated ? 1 : -1 } })
+                await Statist.updateOne({ $inc: { completed: isDoneUpdated ? 1 : -1 } });
                 printStatist();
             }
             else {
@@ -102,7 +102,7 @@ exports.deleteTodo = async (req, res) => {
         getTodos(res);
 
         // statist
-        await Statist.updateOne({ $inc: { deleted: todo.deletedCount } })
+        await Statist.updateOne({ $inc: { deleted: todo.deletedCount } });
         printStatist();
 
     } catch (err) {
@@ -116,7 +116,7 @@ exports.deleteAllTodos = async (req, res) => {
         getTodos(res);
 
         // statist
-        await Statist.updateOne({ $inc: { deleted: todo.deletedCount } })
+        await Statist.updateOne({ $inc: { deleted: todo.deletedCount } });
         printStatist();
 
     } catch (err) {
