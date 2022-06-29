@@ -45,7 +45,6 @@ const printStatist = async () => {
 exports.createTodo = async (req, res) => {
     let { text, isDone } = req.body;
     let isDoneUpdated = isDone === "true" ? true : false;
-
     try {
         await Todos.create({ text: text, isDone: isDoneUpdated });
         getTodos(res);

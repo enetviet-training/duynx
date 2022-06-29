@@ -2,6 +2,9 @@ const express = require('express');
 const router = express.Router();
 const { setupTodos } = require("../api/controllers/setupController");
 const todoController = require("../api/controllers/todoController");
+const {logRequest} = require("../middleWare/logRequest")
+
+router.use(logRequest);
 
 /* Setup */
 router.get("/setupTodos", setupTodos)
