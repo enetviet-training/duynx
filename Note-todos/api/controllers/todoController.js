@@ -1,178 +1,124 @@
 const { json } = require("body-parser");
 const Todos = require("../models/todoModel");
-const Statist = require("../models/statistModel")
+const Statist = require("../models/statistModel");
 
-function getTodos(res) {
-    Todos.find(function (err, todos) {
-        if (err) {
-            res.send(err);
-        }
-        else {
-            res.json(todos);
-        }
-    });
+const getTodos = async (res) => {
+    try {
+        let todos = await Todos.find();
+        res.json(todos);
+    } catch (err) {
+        res.send(err);
+    }
 }
 
-function getStatist(res) {
-    Statist.find(function (err, statist) {
-        if (err) {
-            res.send(err);
-        }
-        else {
-            res.json(statist);
-        }
-    });
+exports.getAllTodos = (req, res) => {
+    getTodos(res);
 }
 
-function printStatist() {
-    Statist.findOne(function (err, statist) {
-        if (err) throw err;
+exports.getOneTodo = async (req, res) => {
+    try {
+        let todo = await Todos.findById({ _id: req.params.id });
+        res.json(todo);
+    } catch (err) {
+        throw err;
+    }
+}
+
+exports.getStatist = async (req, res) => {
+    try {
+        let statist = await Statist.find();
+        res.json(statist);
+    } catch (err) {
+        res.send(err);
+    }
+}
+
+const printStatist = async () => {
+    try {
+        let statist = await Statist.findOne();
         console.log(statist);
-    })
+    } catch (err) {
+        throw err;
+    }
 }
 
-module.exports = function (app) {
-
-    // get all todos
-    app.get("/api/todos", function (req, res) {
+exports.createTodo = async (req, res) => {
+    let { text, isDone } = req.body;
+    let isDoneUpdated = isDone === "true" ? true : false;
+    try {
+        await Todos.create({ text: text, isDone: isDoneUpdated });
         getTodos(res);
-    })
 
-    // /api/todo/123456
-    app.get("/api/todo/:id", function (req, res) {
+        await Statist.updateOne(
+            {},
+            { $inc: { created: 1, completed: isDoneUpdated ? 1 : 0 } },
+            { upsert: true });
+        printStatist();
 
-        Todos.findById({ _id: req.params.id }, function (err, todo) {
-            if (err) throw err;
+    } catch (err) {
+        throw err;
+    }
+}
 
-            res.json(todo);
-        });
-    });
+exports.updateTodos = async (req, res) => {
+    let { isDone, id, text } = req.body;
+    let todo;
 
-    // get statist
-    app.get("/api/todos/statist", function (req, res) {
-        getStatist(res);
-    })
-
-    /**
-     * Create a todo
-     */
-
-    app.post("/api/todo", function (req, res) {
-
-        Todos.create({ text: req.body.text, isDone: req.body.isDone === "true" ? true : false }, function (err) {
-            if (err) throw err;
-
+    try {
+        if (!isDone) {
+            todo = await Todos.updateOne({ _id: id }, { text: text });
             getTodos(res);
+        }
+        else {
+            let isDoneUpdated = isDone === "true" ? true : false;
+            todo = await Todos.updateOne({
+                _id: req.body.id,
+                isDone: !isDoneUpdated
+            }, {
+                text: req.body.text,
+                isDone: isDoneUpdated
+            });
 
             // statist
-            Statist.updateOne(
-                {},
-                { $inc: { created: 1, completed: req.body.isDone === "true" ? 1 : 0 } },
-                { upsert: true },
-                function (err) {
-                    if (err) throw err;
-                    printStatist();
-                }
-            )
-        });
-    });
-
-    /**
-     * Update a Todo
-     */
-    app.put("/api/todo", function (req, res) {
-        if (!req.body.id) {
-            return res.status(500).send("Id is required");
-        }
-        else {
-            let {isDone, id,  text} = req.body;
-            if (!isDone) {
-                Todos.updateOne({
-                    _id: id
-                }, {
-                    text: text
-                }, function (err) {
-                    if (err) throw err;
-                })
-            }
-            else {
-                let isDoneUpdated = isDone === "true" ? true : false;
-                Todos.updateOne({
-                    _id: req.body.id,
-                    isDone: !isDoneUpdated
-                }, {
-                    text: req.body.text,
-                    isDone: isDoneUpdated
-                },
-                    function (err, todo) {
-                        if (err) throw err;
-                        if (todo.nModified > 0) {
-                            // statist
-                            Statist.updateOne(
-                                { $inc: { completed: isDoneUpdated ? 1 : -1 } },
-                                function (err) {
-                                    if (err) throw err;
-                                    printStatist();
-                                }
-                            )
-                        }
-                        else {
-                            throw new Error("Update failed !")
-                        }
-                    })
-            }
-
-            getTodos(res);
-        }
-    });
-
-    /**
-     * Delete a todo
-     */
-
-    app.delete("/api/todo/:id", function (req, res) {
-        Todos.deleteOne({
-            _id: req.params.id
-        }, function (err) {
-            if (err) {
-                return res.status(500).json(err);
-            }
-            else {
+            if (todo.nModified > 0) {
                 getTodos(res);
-
-                // statist
-                Statist.updateOne(
-                    { $inc: { deleted: 1 } },
-                    function (err) {
-                        if (err) throw err;
-                        printStatist();
-                    }
-                )
-            }
-        })
-    })
-
-    /**
-     * Delete all Todos
-     */
-
-    app.delete("/api/todos/deleteAll", function (req, res) {
-        Todos.deleteMany(function (err, todo) {
-            if (err) {
-                return res.status(500).json(err);
+                await Statist.updateOne({ $inc: { completed: isDoneUpdated ? 1 : -1 } });
+                printStatist();
             }
             else {
-                getTodos(res);
-
-                // statist
-                Statist.updateOne(
-                    { $inc: { deleted: todo.deletedCount } },
-                    function (err) {
-                        if (err) throw err;
-                        printStatist();
-                    }
-                )
+                res.status(500).send("Update failed !");
             }
-        })
-    })
+        }
+
+    } catch (err) {
+        throw err;
+    }
+}
+
+exports.deleteTodo = async (req, res) => {
+    try {
+        todo = await Todos.deleteOne({ _id: req.params.id })
+        getTodos(res);
+
+        // statist
+        await Statist.updateOne({ $inc: { deleted: todo.deletedCount } });
+        printStatist();
+
+    } catch (err) {
+        throw err;
+    };
+}
+
+exports.deleteAllTodos = async (req, res) => {
+    try {
+        let todo = await Todos.deleteMany()
+        getTodos(res);
+
+        // statist
+        await Statist.updateOne({ $inc: { deleted: todo.deletedCount } });
+        printStatist();
+
+    } catch (err) {
+        throw err;
+    }
 }

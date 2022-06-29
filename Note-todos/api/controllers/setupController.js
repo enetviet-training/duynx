@@ -1,57 +1,64 @@
 const Todos = require("../models/todoModel");
 const Statist = require("../models/statistModel");
 
-module.exports = function (app) {
+const seedTodos = [
+    {
+        text: "Học Node.js",
+        isDone: false
+    },
+    {
+        text: "Học Angular.js",
+        isDone: false
+    },
+    {
+        text: "Viết ứng dụng hoàn chỉnh",
+        isDone: false
+    }
+]
 
-    app.get("/api/setupTodos", function (req, res) {
-        // setup seed data
-        const seedTodos = [
-            {
-                text: "Học Node.js",
-                isDone: false
-            },
+const getStatistPromise = () => {
+    return new Promise((resolve, reject) => {
+        Statist.find(function (err, result) {
+            if (err) reject(err);
+            else resolve(result);
+        })
+    })
+}
 
-            {
-                text: "Học Angular.js",
-                isDone: false
-            },
-
-            {
-                text: "Viết ứng dụng hoàn chỉnh",
-                isDone: false
+const createTodosPromise = (content, res) => {
+    return new Promise((resolve, reject) => {
+        Todos.create(content, (err, result) => {
+            if (err) reject(err);
+            else {
+                res.send(result);
+                resolve(result);
             }
-        ];
+        })
+    })
+}
 
-        Todos.create(seedTodos, function (err, results) {
-            if (err) throw err;
-            res.send(results);
+const updateStatistPromise = (createdDocuments) => {
+    return new Promise((resolve, reject) => {
+        Statist.updateOne(
+            {},
+            { $inc: { created: createdDocuments.length } },
+            { upsert: true },
+            function (err, result) {
+                if (err) reject(err);
+                else resolve(result);
+            }
+        )
+    })
+}
 
-            // statist
-            Statist.find(function (err, statistResults) {
-                if (err) throw err;
-
-                // create or update document
-                if (statistResults.length < 1) {
-                    Statist.create(
-                        { created: seedTodos.length }, function (err) {
-                            if (err) throw err;
-                        })
-                }
-                else {
-                    Statist.updateOne(
-                        { $inc: { created: seedTodos.length } },
-                        function (err) {
-                            if (err) throw err;
-
-                            // print log
-                            Statist.find(function (err, statists) {
-                                if (err) throw err;
-                                console.log(statists[0]);
-                            })
-                        }
-                    )
-                }
-            });
-        });
-    });
+exports.setupTodos = (req, res) => {
+    createTodosPromise(seedTodos, res)
+        .then(createdDocuments => updateStatistPromise(createdDocuments))
+        .then(getStatistPromise)
+        .then(statistResult => {
+            console.log(statistResult);
+        })
+        .catch(err => {
+            throw err;
+        })
 }
