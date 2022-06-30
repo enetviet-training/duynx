@@ -1,5 +1,7 @@
 const Todos = require("../models/todoModel");
 const Statist = require("../models/statistModel");
+const { eventBus, eventsType } = require("../events/eventBus");
+const todoType = eventsType.todoEvents;
 
 const seedTodos = [
     {
@@ -16,15 +18,6 @@ const seedTodos = [
     }
 ]
 
-const getStatistPromise = () => {
-    return new Promise((resolve, reject) => {
-        Statist.find(function (err, result) {
-            if (err) reject(err);
-            else resolve(result);
-        })
-    })
-}
-
 const createTodosPromise = (content, res) => {
     return new Promise((resolve, reject) => {
         Todos.create(content, (err, result) => {
@@ -37,27 +30,18 @@ const createTodosPromise = (content, res) => {
     })
 }
 
-const updateStatistPromise = (createdDocuments) => {
-    return new Promise((resolve, reject) => {
-        Statist.updateOne(
-            {},
-            { $inc: { created: createdDocuments.length } },
-            { upsert: true },
-            function (err, result) {
-                if (err) reject(err);
-                else resolve(result);
-            }
-        )
-    })
+const updateStatist = (createdDocuments) => {
+    let completedCount = 0;
+    createdDocuments.forEach(element => {
+        completedCount += element.isDone ? 1 : 0;
+    });
+
+    eventBus.emit(todoType.CREATE, { created: createdDocuments.length, completed: completedCount });
 }
 
 exports.setupTodos = (req, res) => {
     createTodosPromise(seedTodos, res)
-        .then(createdDocuments => updateStatistPromise(createdDocuments))
-        .then(getStatistPromise)
-        .then(statistResult => {
-            console.log(statistResult);
-        })
+        .then(createdDocuments => updateStatist(createdDocuments))
         .catch(err => {
             throw err;
         })

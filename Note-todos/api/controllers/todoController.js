@@ -1,6 +1,7 @@
 const { json } = require("body-parser");
 const Todos = require("../models/todoModel");
-const Statist = require("../models/statistModel");
+const { eventBus, eventsType } = require("../events/eventBus");
+const todoType = eventsType.todoEvents;
 
 const getTodos = async (res) => {
     try {
@@ -24,24 +25,6 @@ exports.getOneTodo = async (req, res) => {
     }
 }
 
-exports.getStatist = async (req, res) => {
-    try {
-        let statist = await Statist.find();
-        res.json(statist);
-    } catch (err) {
-        res.send(err);
-    }
-}
-
-const printStatist = async () => {
-    try {
-        let statist = await Statist.findOne();
-        console.log(statist);
-    } catch (err) {
-        throw err;
-    }
-}
-
 exports.createTodo = async (req, res) => {
     let { text, isDone } = req.body;
     let isDoneUpdated = isDone === "true" ? true : false;
@@ -49,12 +32,7 @@ exports.createTodo = async (req, res) => {
         await Todos.create({ text: text, isDone: isDoneUpdated });
         getTodos(res);
 
-        await Statist.updateOne(
-            {},
-            { $inc: { created: 1, completed: isDoneUpdated ? 1 : 0 } },
-            { upsert: true });
-        printStatist();
-
+        eventBus.emit(todoType.CREATE, { created: 1, completed: isDoneUpdated ? 1 : 0 });
     } catch (err) {
         throw err;
     }
@@ -79,17 +57,15 @@ exports.updateTodos = async (req, res) => {
                 isDone: isDoneUpdated
             });
 
-            // statist
             if (todo.nModified > 0) {
                 getTodos(res);
-                await Statist.updateOne({ $inc: { completed: isDoneUpdated ? 1 : -1 } });
-                printStatist();
+
+                eventBus.emit(todoType.UPDATE, { completed: isDoneUpdated ? 1 : -1 });
             }
             else {
                 res.status(500).send("Update failed !");
             }
         }
-
     } catch (err) {
         throw err;
     }
@@ -97,16 +73,18 @@ exports.updateTodos = async (req, res) => {
 
 exports.deleteTodo = async (req, res) => {
     try {
-        todo = await Todos.deleteOne({ _id: req.params.id })
-        getTodos(res);
+        let todo = await Todos.deleteOne({ _id: req.params.id })
+        if (todo.deletedCount > 0) {
+            getTodos(res);
 
-        // statist
-        await Statist.updateOne({ $inc: { deleted: todo.deletedCount } });
-        printStatist();
-
+            eventBus.emit(todoType.DELETE, { deleted: todo.deletedCount });
+        }
+        else {
+            res.status(500).send("Not found this todo, cannot delete !");
+        }
     } catch (err) {
         throw err;
-    };
+    }
 }
 
 exports.deleteAllTodos = async (req, res) => {
@@ -114,10 +92,7 @@ exports.deleteAllTodos = async (req, res) => {
         let todo = await Todos.deleteMany()
         getTodos(res);
 
-        // statist
-        await Statist.updateOne({ $inc: { deleted: todo.deletedCount } });
-        printStatist();
-
+        eventBus.emit(todoType.DELETE, { deleted: todo.deletedCount });
     } catch (err) {
         throw err;
     }
